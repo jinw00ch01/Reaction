@@ -54,24 +54,6 @@ const DiaryDisplay = ({ data, isLoading }) => {
       <Divider />
       <CardContainer>
         <CardTitle>
-          <HeartTwoTone twoToneColor="#FFB7B2" style={{ marginRight: "6px" }} />
-          감성일기장
-        </CardTitle>
-        <CardContent>{data.emotional_content}</CardContent>
-      </CardContainer>
-
-      <Divider />
-      <CardContainer>
-        <CardTitle>
-          <SmileTwoTone twoToneColor="#FFDAC1" style={{ marginRight: "6px" }} />
-          내가 느낀 감정
-        </CardTitle>
-        <CardContent>{data.emotional_result}</CardContent>
-      </CardContainer>
-
-      <Divider />
-      <CardContainer>
-        <CardTitle>
           <MessageTwoTone
             twoToneColor={"#B5EAD7"}
             style={{ marginRight: "6px" }}
@@ -91,9 +73,32 @@ const DiaryDisplay = ({ data, isLoading }) => {
           {data.action_list.map((action, index) => (
             <ActionListItem key={index}>{action}</ActionListItem>
           ))}
-          {/* <ActionListItem>{data.action_list[0]}</ActionListItem>
-          <ActionListItem>{data.action_list[1]}</ActionListItem>
-          <ActionListItem>{data.action_list[2]}</ActionListItem> */}
+        </CardContent>
+      </CardContainer>
+
+      <Divider />
+      <CardContainer>
+        <CardTitle>
+          <SmileTwoTone twoToneColor="#FFDAC1" style={{ marginRight: "6px" }} />
+          맞춤 활동 추천
+        </CardTitle>
+        <CardContent>
+          {data.recommended_activities.map((activity, index) => (
+            <ActionListItem key={index}>{activity}</ActionListItem>
+          ))}
+        </CardContent>
+      </CardContainer>
+
+      <Divider />
+      <CardContainer>
+        <CardTitle>
+          <HeartTwoTone twoToneColor="#FFB7B2" style={{ marginRight: "6px" }} />
+          맞춤 요리 추천
+        </CardTitle>
+        <CardContent>
+          {data.recommended_foods.map((food, index) => (
+            <ActionListItem key={index}>{food}</ActionListItem>
+          ))}
         </CardContent>
       </CardContainer>
     </DiaryContainer>
