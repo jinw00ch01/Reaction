@@ -1,11 +1,23 @@
-# React + Vite
+# 심리 상담사 AI, Reaction
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 설치 방법
 
-Currently, two official plugins are available:
+1. 클라이언트 설치
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[bash]
+npm install
+
+2. 서버 설치
+
+[bash]
+cd server
+npm install
+
+```
+
+3. **더 효율적인 설치 방법**
+루트 디렉토리에 새로운 스크립트를 추가하여 한 번에 모든 의존성을 설치할 수 있습니다. `package.json`을 다음과 같이 수정하세요:
+
 
 -- sql command
 CREATE DATABASE reaction_diary;
