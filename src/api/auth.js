@@ -92,5 +92,18 @@ export const authAPI = {
       localStorage.removeItem('refreshToken');
       throw new AuthError('로그아웃 중 오류가 발생했습니다', 'LOGOUT_ERROR');
     }
+  },
+
+  withdraw: async () => {
+    try {
+      await axios.delete(API_ENDPOINTS.auth.withdraw);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+    } catch (error) {
+      if (error.response) {
+        throw new AuthError('회원탈퇴 처리 중 오류가 발생했습니다', 'WITHDRAW_ERROR');
+      }
+      throw new AuthError('서버와 통신할 수 없습니다', 'NETWORK_ERROR');
+    }
   }
 }; 

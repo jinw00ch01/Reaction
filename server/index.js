@@ -127,6 +127,20 @@ app.post('/api/auth/refresh', async (req, res) => {
   }
 });
 
+app.delete('/api/auth/withdraw', authenticateToken, async (req, res) => {
+  try {
+    await db.execute(
+      'DELETE FROM users WHERE id = ?',
+      [req.user.userId]
+    );
+    
+    res.json({ message: '회원탈퇴가 완료되었습니다' });
+  } catch (error) {
+    console.error('회원탈퇴 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행중입니다`);

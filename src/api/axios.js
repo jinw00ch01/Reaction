@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
     refresh: '/auth/refresh',
     verify: '/auth/verify',
     logout: '/auth/logout',
+    withdraw: '/auth/withdraw'
   },
   diary: {
     create: '/diary',

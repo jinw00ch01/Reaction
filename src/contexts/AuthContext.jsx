@@ -85,6 +85,17 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const withdraw = async () => {
+    try {
+      await authAPI.withdraw();
+      setUser(null);
+      message.success('회원탈퇴가 완료되었습니다');
+    } catch (error) {
+      handleAuthError(error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -92,7 +103,8 @@ export const AuthProvider = ({ children }) => {
       signup, 
       logout, 
       loading,
-      checkAuthStatus 
+      checkAuthStatus,
+      withdraw
     }}>
       {children}
     </AuthContext.Provider>
