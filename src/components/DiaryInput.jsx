@@ -4,10 +4,12 @@ import { Title } from "./CommonStyles";
 import styled from "styled-components";
 import { FileImageOutlined } from "@ant-design/icons";
 import html2canvas from "html2canvas";
+import { useAuth } from '../contexts/AuthContext';
 
 const { TextArea } = Input;
 
 const DiaryInput = ({ isLoading, onSubmit, messageApi }) => {
+  const { user } = useAuth();
   const [userInput, setUserInput] = useState("");
   // 사용자의 입력을 받아, 상위컴포넌트로 데이터를 전달
 
@@ -17,6 +19,14 @@ const DiaryInput = ({ isLoading, onSubmit, messageApi }) => {
   };
   
   const handleClick = () => {
+    if (!user) {
+      messageApi.open({
+        type: "error",
+        content: "로그인이 필요한 서비스입니다.",
+      });
+      return;
+    }
+
     if (!userInput) {
       messageApi.open({
         type: "error",
@@ -24,32 +34,42 @@ const DiaryInput = ({ isLoading, onSubmit, messageApi }) => {
       });
       return;
     }
+    
     messageApi.open({
       type: "success",
       content: "생성 요청 완료",
     });
 
     onSubmit(userInput);
-    setUserInput(null);
+    setUserInput("");
   };
 
   const captureAndDownload = async () => {
     const nodeToCapture = document.getElementById("capture");
-    console.log(nodeToCapture);
-    // HTML2Canvas를 사용하여 노드의 스크린샷을 생성합니다.
-    html2canvas(nodeToCapture, {
-      allowTaint: true,
-      useCORS: true,
-    }).then(function (canvas) {
-      // 스크린샷을 이미지로 변환합니다.
-      const image = canvas.toDataURL("image/png");
+    
+    try {
+      const canvas = await html2canvas(nodeToCapture, {
+        allowTaint: true,
+        useCORS: true,
+        logging: true,
+        imageTimeout: 0,
+        onclone: function(clonedDoc) {
+          const images = clonedDoc.getElementsByTagName('img');
+          for(let img of images) {
+            img.crossOrigin = "anonymous";
+          }
+        }
+      });
 
-      // 이미지를 다운로드할 수 있는 링크를 생성합니다.
+      const image = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = image;
       a.download = "gpt-diary-result.png";
       a.click();
-    });
+    } catch (error) {
+      console.error('캡처 중 오류 발생:', error);
+      messageApi.error('이미지 캡처에 실패했습니다.');
+    }
   };
 
 

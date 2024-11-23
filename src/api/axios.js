@@ -12,7 +12,7 @@ export const BASE_URL = getBaseUrl();
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 5000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -54,8 +54,8 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // 토큰 만료 에러 (401) 처리
-    if (error.response.status === 401 && !originalRequest._retry) {
+    // error.response가 있는지 확인
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {

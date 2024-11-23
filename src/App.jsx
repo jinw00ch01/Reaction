@@ -18,7 +18,7 @@ function App() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
       setData(null);
       setPrevData(null);
     }
@@ -43,26 +43,13 @@ function App() {
       let gptPrompt = `${userInput}`;
       
       if (user && prevData) {
-        gptPrompt += `\n\n[이전 감정 상태]
-        제목: ${prevData.title}
-        요약: ${prevData.summary}
-        분석: ${prevData.analysis}
-        
-        위의 이전 감정 상태와 비교하여 현재의 감정 변화를 분석해주세요.`;
+        gptPrompt += `\n\n이전 감정 상태:\n${prevData.summary}\n\n이전 분석:\n${prevData.analysis}`;
       }
   
-      const message = await CallGPT({
+      const result = await CallGPT({
         prompt: gptPrompt,
       });
       
-      let result;
-      try {
-        result = typeof message === 'string' ? JSON.parse(message) : message;
-      } catch (parseError) {
-        console.error('JSON 파싱 에러:', parseError);
-        throw new Error('응답 데이터 형식이 올바르지 않습니다');
-      }
-  
       if (!result || typeof result !== 'object') {
         throw new Error('응답 데이터가 올바르지 않습니다');
       }
@@ -77,6 +64,7 @@ function App() {
         await fetchRecentDiary();
       }
     } catch (error) {
+      console.error('API 호출 에러:', error);
       messageApi.open({
         type: "error",
         content: error?.message || '오류가 발생했습니다',

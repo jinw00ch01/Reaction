@@ -30,7 +30,15 @@ export const CardTitle = styled.div`
   font-size: 22px;
   margin-bottom: 20px;
 `;
-export const CardContent = styled.div``;
+export const CardContent = styled.div`
+  white-space: pre-wrap;
+  line-height: 1.8;
+  text-align: left;
+  padding: 15px;
+  background-color: #fafafa;
+  border-radius: 8px;
+  margin-top: 10px;
+`;
 export const ActionList = styled.ul`
   font-size: 16px;
 `;

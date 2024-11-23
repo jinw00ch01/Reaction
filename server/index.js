@@ -4,22 +4,32 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('./config/database');
 const { authenticateToken } = require('./middleware/auth');
+const OpenAI = require('openai');
 require('dotenv').config();
+const axios = require('axios');
 
 const app = express();
 
+// CORS 설정
 app.use(cors({
-    origin: 'http://localhost:5173',  // 프론트엔드 서버 주소로 변경
-    credentials: true
-  }));
+  origin: 'http://localhost:5173',
+  credentials: true,
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 app.use(express.json());
 
-// 기본 라우트 추가
+// OpenAI 설정
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// 기본 라우트
 app.get('/', (req, res) => {
   res.json({ message: 'API 서버가 정상적으로 실행중입니다.' });
 });
 
-// API 라우트들
+// 인증 관련 라우트
 app.post('/auth/signup', async (req, res) => {
   const { email, password } = req.body;
   
@@ -87,24 +97,6 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-app.get('/auth/verify', authenticateToken, async (req, res) => {
-  try {
-    const [users] = await db.execute(
-      'SELECT id, email FROM users WHERE id = ?',
-      [req.user.userId]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
-    }
-
-    res.json(users[0]);
-  } catch (error) {
-    console.error('토큰 검증 에러:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다' });
-  }
-});
-
 app.post('/auth/refresh', async (req, res) => {
   const { refreshToken } = req.body;
 
@@ -160,7 +152,7 @@ app.delete('/auth/withdraw', authenticateToken, async (req, res) => {
   }
 });
 
-// 다이어리 저장 API
+// 다이어리 관련 라우트
 app.post('/diary', authenticateToken, async (req, res) => {
   const { input, result } = req.body;
   const userId = req.user.userId;
@@ -177,11 +169,10 @@ app.post('/diary', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('다이어리 저장 에러:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+    res.status(500).json({ message: '서버 오류가 발생습니다' });
   }
 });
 
-// 최근 다이어리 조회 API
 app.get('/diary/recent', authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   
@@ -198,7 +189,6 @@ app.get('/diary/recent', authenticateToken, async (req, res) => {
   }
 });
 
-// diary history 엔드포인트 추가
 app.get('/diary/history', authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   
@@ -220,6 +210,61 @@ app.get('/diary/history', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/image/generate', authenticateToken, async (req, res) => {
+  const { prompt } = req.body;
+  
+  try {
+    const response = await openai.images.generate({
+      model: "dall-e-2",
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+    });
+
+    if (!response.data?.[0]?.url) {
+      throw new Error('이미지 URL을 받지 못했습니다');
+    }
+
+    // DALL-E 이미지를 서버에서 가져와서 클라이언트로 전달
+    const imageResponse = await axios.get(response.data[0].url, {
+      responseType: 'arraybuffer'
+    });
+    
+    res.set('Content-Type', 'image/png');
+    res.send(imageResponse.data);
+  } catch (error) {
+    console.error('OpenAI 이미지 생성 에러:', error);
+    const keywords = encodeURIComponent(prompt.split(' ').slice(0, 3).join(','));
+    res.json({ 
+      imageUrl: `https://source.unsplash.com/1024x1024/?${keywords}`,
+      fallback: true 
+    });
+  }
+});
+
+// 토큰 검증 엔드포인트 추가
+app.get('/auth/verify', authenticateToken, async (req, res) => {
+  try {
+    const [users] = await db.execute(
+      'SELECT id, email FROM users WHERE id = ?',
+      [req.user.userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
+    }
+
+    res.json({ 
+      message: '토큰이 유효합니다',
+      user: { id: users[0].id, email: users[0].email }
+    });
+  } catch (error) {
+    console.error('사용자 조회 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  }
+});
+
+// 서버 시작
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행중입니다`);

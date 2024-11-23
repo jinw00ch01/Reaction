@@ -82,7 +82,9 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     setUser(null);
+    window.location.reload();
   };
 
   const withdraw = async () => {

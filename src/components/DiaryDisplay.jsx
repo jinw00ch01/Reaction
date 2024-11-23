@@ -21,6 +21,7 @@ import { Image } from "antd";
 import styled from "styled-components";
 import { useState, useEffect } from 'react';
 import { generateImage } from '../api/image';
+import { useAuth } from '../contexts/AuthContext';
 
 const ThumbnailImage = styled.img`
   width: 100%;
@@ -32,19 +33,32 @@ const ThumbnailImage = styled.img`
 
 const DiaryDisplay = ({ data, prevData, isLoading }) => {
   const [imageUrl, setImageUrl] = useState("");
+  const [fallbackImage, setFallbackImage] = useState(false);
+  const { user } = useAuth();
   
   useEffect(() => {
+    if (!user) {
+      setImageUrl("");
+      return;
+    }
+    
     if (data?.summary) {
-      generateImage(data.summary)
-        .then(url => setImageUrl(url))
+      const prompt = `${data.summary} in artistic style, emotional, psychology themed`;
+      generateImage(prompt)
+        .then(url => {
+          setImageUrl(url);
+          setFallbackImage(url.includes('unsplash.com'));
+        })
         .catch(error => {
           console.error('이미지 생성 실패:', error);
-          setImageUrl("");
+          const emotionKeywords = encodeURIComponent('emotional,psychology,therapy');
+          setImageUrl(`https://source.unsplash.com/1024x1024/?${emotionKeywords}`);
+          setFallbackImage(true);
         });
     }
-  }, [data?.summary]);
+  }, [data?.summary, user]);
 
-  if (!data || typeof data !== 'object') return null;
+  if (!user || !data || typeof data !== 'object') return null;
   
   // 필수 필드 검증
   const requiredFields = ['title', 'summary', 'analysis', 'recommended_foods'];
@@ -82,6 +96,7 @@ const DiaryDisplay = ({ data, prevData, isLoading }) => {
           <img 
             src={imageUrl}
             alt="감정 이미지"
+            crossOrigin="anonymous"
             style={{
               width: '100%',
               maxHeight: '400px',
@@ -89,10 +104,11 @@ const DiaryDisplay = ({ data, prevData, isLoading }) => {
               borderRadius: '8px'
             }}
             onError={(e) => {
-              console.error('이미지 로드 실패:', e);
-              // 이미지 로드 실패시 재시도
-              const newTimestamp = new Date().getTime();
-              setImageUrl(`https://source.unsplash.com/1600x900/?${encodeURIComponent(data.thumbnail)}&t=${newTimestamp}`);
+              if (!fallbackImage) {
+                const keywords = encodeURIComponent('emotion,psychology');
+                setImageUrl(`https://source.unsplash.com/1600x900/?${keywords}`);
+                setFallbackImage(true);
+              }
             }}
           />
         </div>
@@ -207,5 +223,4 @@ const EmotionalChangeAnalysis = ({ currentData, prevData }) => {
     </div>
   );
 };
-
 export default DiaryDisplay;

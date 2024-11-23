@@ -19,6 +19,7 @@ export const authAPI = {
       const { token, refreshToken, user } = response.data;
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify(user));
       
       return { user };
     } catch (error) {
@@ -86,10 +87,11 @@ export const authAPI = {
       await axiosInstance.post(API_ENDPOINTS.auth.logout);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
     } catch (error) {
-      // 로그아웃 실패 시에도 로컬 스토리지는 클리어
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       throw new AuthError('로그아웃 중 오류가 발생했습니다', 'LOGOUT_ERROR');
     }
   },
@@ -99,9 +101,11 @@ export const authAPI = {
       await axiosInstance.delete(API_ENDPOINTS.auth.withdraw);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
     } catch (error) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       if (error.response && error.response.data) {
         throw new AuthError(error.response.data.message || '회원탈퇴 처리 중 오류가 발생했습니다', 'WITHDRAW_ERROR');
       }
