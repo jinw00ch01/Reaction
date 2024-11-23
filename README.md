@@ -17,15 +17,28 @@ npm install
 
 
 3.  MySQL Command Line Client 실행
+
 password 입력
 인증 후
-```
->>  CREATE DATABASE reaction_diary;
->>  USE reaction_diary;
 
->>    CREATE TABLE users (
->>    id INT AUTO_INCREMENT PRIMARY KEY,
->>    email VARCHAR(255) UNIQUE NOT NULL,
->>    password VARCHAR(255) NOT NULL,
->>    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
->>    );
+```
+CREATE DATABASE reaction_diary;
+USE reaction_diary;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE diaries (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    input_text TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+```

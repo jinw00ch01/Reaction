@@ -20,6 +20,7 @@ import {
 import { Image } from "antd";
 import styled from "styled-components";
 import { useState, useEffect } from 'react';
+import { generateImage } from '../api/image';
 
 const ThumbnailImage = styled.img`
   width: 100%;
@@ -33,11 +34,15 @@ const DiaryDisplay = ({ data, prevData, isLoading }) => {
   const [imageUrl, setImageUrl] = useState("");
   
   useEffect(() => {
-    if (data?.thumbnail) {
-      // 키워드를 URL에 적용
-      setImageUrl(`https://source.unsplash.com/1600x900/?${encodeURIComponent(data.thumbnail)}`);
+    if (data?.summary) {
+      generateImage(data.summary)
+        .then(url => setImageUrl(url))
+        .catch(error => {
+          console.error('이미지 생성 실패:', error);
+          setImageUrl("");
+        });
     }
-  }, [data?.thumbnail]);
+  }, [data?.summary]);
 
   if (!data || typeof data !== 'object') return null;
   
@@ -73,14 +78,24 @@ const DiaryDisplay = ({ data, prevData, isLoading }) => {
       </CardContainer>
 
       {imageUrl && (
-        <ThumbnailImage 
-          src={imageUrl} 
-          alt="감정 이미지"
-          onError={(e) => {
-            console.error('이미지 로드 실패:', e);
-            setImageUrl(""); // 이미지 로드 실패시 이미지 숨김
-          }}
-        />
+        <div style={{ margin: '20px 0' }}>
+          <img 
+            src={imageUrl}
+            alt="감정 이미지"
+            style={{
+              width: '100%',
+              maxHeight: '400px',
+              objectFit: 'cover',
+              borderRadius: '8px'
+            }}
+            onError={(e) => {
+              console.error('이미지 로드 실패:', e);
+              // 이미지 로드 실패시 재시도
+              const newTimestamp = new Date().getTime();
+              setImageUrl(`https://source.unsplash.com/1600x900/?${encodeURIComponent(data.thumbnail)}&t=${newTimestamp}`);
+            }}
+          />
+        </div>
       )}
 
       <Divider />
@@ -168,19 +183,29 @@ const DiaryDisplay = ({ data, prevData, isLoading }) => {
 };
 
 const EmotionalChangeAnalysis = ({ currentData, prevData }) => {
-  if (!currentData.emotional_change) {
-    return (
-      <div>
-        이전 상태: {prevData.summary}
-        현재 상태: {currentData.summary}
+  return (
+    <div>
+      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+        <div style={{ marginBottom: '15px' }}>
+          <strong>이전 상태:</strong> 
+          <p style={{ margin: '8px 0' }}>{prevData.summary}</p>
+        </div>
         
-        변화 분석: 
-        {currentData.analysis}
+        <div style={{ marginBottom: '15px' }}>
+          <strong>현재 상태:</strong>
+          <p style={{ margin: '8px 0' }}>{currentData.summary}</p>
+        </div>
       </div>
-    );
-  }
-
-  return <div>{currentData.emotional_change}</div>;
+      
+      <div>
+        <strong>변화 분석:</strong>
+        <p style={{ margin: '8px 0' }}>
+          {currentData.emotional_change || 
+           `${prevData.summary}에서 ${currentData.summary}로의 감정 변화가 관찰됩니다. ${currentData.analysis}`}
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default DiaryDisplay;
