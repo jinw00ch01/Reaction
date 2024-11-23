@@ -1,4 +1,4 @@
-import axios, { API_ENDPOINTS } from './axios';
+import axiosInstance, { API_ENDPOINTS } from './axios';
 
 export class AuthError extends Error {
   constructor(message, code) {
@@ -11,7 +11,7 @@ export class AuthError extends Error {
 export const authAPI = {
   login: async (email, password) => {
     try {
-      const response = await axios.post(API_ENDPOINTS.auth.login, {
+      const response = await axiosInstance.post(API_ENDPOINTS.auth.login, {
         email,
         password,
       });
@@ -38,7 +38,7 @@ export const authAPI = {
 
   signup: async (email, password) => {
     try {
-      const response = await axios.post(API_ENDPOINTS.auth.signup, {
+      const response = await axiosInstance.post(API_ENDPOINTS.auth.signup, {
         email,
         password,
       });
@@ -61,7 +61,7 @@ export const authAPI = {
   refreshToken: async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      const response = await axios.post(API_ENDPOINTS.auth.refresh, { refreshToken });
+      const response = await axiosInstance.post(API_ENDPOINTS.auth.refresh, { refreshToken });
       const { token } = response.data;
       localStorage.setItem('token', token);
       return token;
@@ -74,7 +74,7 @@ export const authAPI = {
 
   verifyToken: async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.auth.verify);
+      const response = await axiosInstance.get(API_ENDPOINTS.auth.verify);
       return response.data;
     } catch (error) {
       throw new AuthError('토큰 검증에 실패했습니다', 'TOKEN_VERIFICATION_FAILED');
@@ -83,7 +83,7 @@ export const authAPI = {
 
   logout: async () => {
     try {
-      await axios.post(API_ENDPOINTS.auth.logout);
+      await axiosInstance.post(API_ENDPOINTS.auth.logout);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
     } catch (error) {
@@ -96,12 +96,14 @@ export const authAPI = {
 
   withdraw: async () => {
     try {
-      await axios.delete(API_ENDPOINTS.auth.withdraw);
+      await axiosInstance.delete(API_ENDPOINTS.auth.withdraw);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
     } catch (error) {
-      if (error.response) {
-        throw new AuthError('회원탈퇴 처리 중 오류가 발생했습니다', 'WITHDRAW_ERROR');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      if (error.response && error.response.data) {
+        throw new AuthError(error.response.data.message || '회원탈퇴 처리 중 오류가 발생했습니다', 'WITHDRAW_ERROR');
       }
       throw new AuthError('서버와 통신할 수 없습니다', 'NETWORK_ERROR');
     }

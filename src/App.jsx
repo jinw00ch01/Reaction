@@ -6,49 +6,73 @@ import logo from "./assets/logo.png";
 import DiaryDisplay from "./components/DiaryDisplay";
 import { message } from "antd";
 import AuthButtons from './components/AuthButtons';
-
-const dummyData = JSON.parse(
-  `{ 
-    "title": "개발 고민과 해결", 
-    "thumbnail": "https://picsum.photos/seed/coding/1600/900", 
-    "summary": "코딩 강의를 듣고 프로젝트에 버그가 발생했지만 해결하지 못하여 GPT를 통해 문제를 해결했음", 
-    "analysis": "이번 상황은 개발자로서 성장하는 과정에서 마주치는 자연스러운 도전이었습니다. 알고리즘과 문제 해결 능력은 중요하지만, 개념적인 이해와 전체적인 시스템 구조 파악이 더 중요하다는 것을 알 수 있었습니다. 아인슈타인의 '문제가 발생한 사고방식으로는 그 문제를 해결할 수 없다'는 말처럼, 단순히 문제 해결에만 집중하기보다는 근본적인 이해를 통한 접근이 필요합니다.", 
-    "action_list": [
-      "더 깊은 개념적 이해를 위해 관련 서적을 읽어보기", 
-      "다른 개발자들과 소통하여 문제 해결 방법 나누기", 
-      "개발자 커뮤니티에 참여하여 지식을 공유하기"
-    ],
-    "recommended_activities": [
-      "15분 명상으로 마음 진정시키기",
-      "가벼운 산책으로 머리 식히기",
-      "코딩과 관련없는 취미 활동하기"
-    ],
-    "recommended_foods": [
-      "집중력 향상을 위한 견과류와 블루베리",
-      "스트레스 해소에 좋은 다크 초콜릿",
-      "뇌 활동에 도움되는 연어 요리"
-    ]
-  }`
-);
+import axios from './api/axios';
+import { useAuth } from './contexts/AuthContext';
 
 function App() {
-  const [data, setData] = useState(dummyData);
+  const [data, setData] = useState(null);
+  const [prevData, setPrevData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
+  const { user } = useAuth();
+
+  const fetchRecentDiary = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await axios.get('/diary/recent');
+      if (response.data.length > 1) {
+        setPrevData(JSON.parse(response.data[1].result_json));
+      }
+    } catch (error) {
+      console.error('최근 다이어리 조회 실패:', error);
+    }
+  };
 
   const handleClickAPICall = async (userInput) => {
     try {
       setIsLoading(true);
+      let gptPrompt = `${userInput}`;
+      
+      if (user && prevData) {
+        gptPrompt += `\n\n[이전 감정 상태]
+        제목: ${prevData.title}
+        요약: ${prevData.summary}
+        분석: ${prevData.analysis}
+        
+        위의 이전 감정 상태와 비교하여 현재의 감정 변화를 분석해주세요.`;
+      }
+  
       const message = await CallGPT({
-        prompt: `${userInput}`,
+        prompt: gptPrompt,
       });
-      setData(JSON.parse(message));
+      
+      let result;
+      try {
+        result = typeof message === 'string' ? JSON.parse(message) : message;
+      } catch (parseError) {
+        console.error('JSON 파싱 에러:', parseError);
+        throw new Error('응답 데이터 형식이 올바르지 않습니다');
+      }
+  
+      if (!result || typeof result !== 'object') {
+        throw new Error('응답 데이터가 올바르지 않습니다');
+      }
+  
+      setData(result);
+  
+      if (user) {
+        await axios.post('/diary', {
+          input: userInput,
+          result: result
+        });
+        await fetchRecentDiary();
+      }
     } catch (error) {
       messageApi.open({
         type: "error",
-        content: error?.message,
+        content: error?.message || '오류가 발생했습니다',
       });
-      return;
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +95,11 @@ function App() {
         onSubmit={handleSubmit}
       />
       <div id="capture">
-        <DiaryDisplay isLoading={isLoading} data={data} />
+        <DiaryDisplay 
+          isLoading={isLoading} 
+          data={data} 
+          prevData={user ? prevData : null} 
+        />
       </div>
     </AppContainer>
   );

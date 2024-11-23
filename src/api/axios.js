@@ -5,8 +5,7 @@ const getBaseUrl = () => {
   if (process.env.NODE_ENV === 'production') {
     return import.meta.env.VITE_API_URL_PRODUCTION;
   }
-  
-  return import.meta.env.VITE_API_URL_DEVELOPMENT;
+  return import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:3000';
 };
 
 export const BASE_URL = getBaseUrl();
@@ -31,15 +30,7 @@ export const API_ENDPOINTS = {
   },
   diary: {
     create: '/diary',
-    list: '/diary/list',
-    detail: (id) => `/diary/${id}`,
-    update: (id) => `/diary/${id}`,
-    delete: (id) => `/diary/${id}`,
-  },
-  user: {
-    profile: '/user/profile',
-    update: '/user/profile',
-    password: '/user/password',
+    recent: '/diary/recent'
   }
 };
 

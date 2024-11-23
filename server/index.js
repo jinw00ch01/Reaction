@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
 });
 
 // API 라우트들
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/auth/signup', async (req, res) => {
   const { email, password } = req.body;
   
   try {
@@ -44,7 +44,7 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -87,7 +87,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+app.get('/auth/verify', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.execute(
       'SELECT id, email FROM users WHERE id = ?',
@@ -105,7 +105,7 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/auth/refresh', async (req, res) => {
+app.post('/auth/refresh', async (req, res) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
@@ -127,16 +127,73 @@ app.post('/api/auth/refresh', async (req, res) => {
   }
 });
 
-app.delete('/api/auth/withdraw', authenticateToken, async (req, res) => {
+app.delete('/auth/withdraw', authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  const connection = await db.getConnection();
+  
   try {
-    await db.execute(
-      'DELETE FROM users WHERE id = ?',
-      [req.user.userId]
+    // 트랜잭션 시작
+    await connection.beginTransaction();
+    
+    // 사용자의 다이어리 데이터 먼저 삭제
+    await connection.execute(
+      'DELETE FROM diaries WHERE user_id = ?',
+      [userId]
     );
     
+    // 사용자 계정 삭제
+    await connection.execute(
+      'DELETE FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    // 트랜잭션 커밋
+    await connection.commit();
     res.json({ message: '회원탈퇴가 완료되었습니다' });
   } catch (error) {
+    // 에러 발생 시 롤백
+    await connection.rollback();
     console.error('회원탈퇴 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 다이어리 저장 API
+app.post('/diary', authenticateToken, async (req, res) => {
+  const { input, result } = req.body;
+  const userId = req.user.userId;
+  
+  try {
+    const [diary] = await db.execute(
+      'INSERT INTO diaries (user_id, input_text, result_json, created_at) VALUES (?, ?, ?, NOW())',
+      [userId, input, JSON.stringify(result)]
+    );
+    
+    res.status(201).json({ 
+      message: '다이어리가 저장되었습니다',
+      diaryId: diary.insertId 
+    });
+  } catch (error) {
+    console.error('다이어리 저장 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  }
+});
+
+// 최근 다이어리 조회 API
+app.get('/diary/recent', authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  
+  try {
+    const [diaries] = await db.execute(
+      'SELECT * FROM diaries WHERE user_id = ? ORDER BY created_at DESC LIMIT 2',
+      [userId]
+    );
+    
+    res.json(diaries);
+  } catch (error) {
+    console.error('다이어리 조회 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
   }
 });
