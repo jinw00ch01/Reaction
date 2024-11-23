@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CallGPT } from "./api/gpt";
 import DiaryInput from "./components/DiaryInput";
 import styled from "styled-components";
@@ -8,6 +8,7 @@ import { message } from "antd";
 import AuthButtons from './components/AuthButtons';
 import axios from './api/axios';
 import { useAuth } from './contexts/AuthContext';
+import DiaryHistory from './components/DiaryHistory';
 
 function App() {
   const [data, setData] = useState(null);
@@ -15,6 +16,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      setData(null);
+      setPrevData(null);
+    }
+  }, [user]);
 
   const fetchRecentDiary = async () => {
     if (!user) return;
@@ -89,18 +97,23 @@ function App() {
       <AppTitle>
         심리상담사 AI, Reaction <img width={"100px"} src={logo} alt="logo" />
       </AppTitle>
-      <DiaryInput
-        messageApi={messageApi}
-        isLoading={isLoading}
-        onSubmit={handleSubmit}
-      />
-      <div id="capture">
-        <DiaryDisplay 
-          isLoading={isLoading} 
-          data={data} 
-          prevData={user ? prevData : null} 
-        />
-      </div>
+      <ContentContainer>
+        <DiaryHistory user={user} />
+        <MainContent>
+          <DiaryInput
+            messageApi={messageApi}
+            isLoading={isLoading}
+            onSubmit={handleSubmit}
+          />
+          <div id="capture">
+            <DiaryDisplay 
+              isLoading={isLoading} 
+              data={data} 
+              prevData={user ? prevData : null} 
+            />
+          </div>
+        </MainContent>
+      </ContentContainer>
     </AppContainer>
   );
 }
@@ -109,11 +122,9 @@ export default App;
 
 const AppContainer = styled.div`
   padding: 20px;
-  display: flex;
-  flex-direction: column;
-  max-width: 720px;
   width: 100%;
-  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
 `;
 
 const AppTitle = styled.div`
@@ -122,4 +133,19 @@ const AppTitle = styled.div`
   font-size: 35px;
   text-align: center;
   font-family: "Noto Serif KR";
+  margin-bottom: 30px;
+`;
+
+const ContentContainer = styled.div`
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  gap: 40px;
+  padding-top: 20px;
+`;
+
+const MainContent = styled.div`
+  width: 800px;
+  margin: 0 auto;
+  flex-grow: 1;
 `;

@@ -59,12 +59,17 @@ const AuthButtons = () => {
 export default AuthButtons;
 
 const ButtonsContainer = styled.div`
-  position: absolute;
+  position: fixed;
   top: 20px;
   right: 20px;
   display: flex;
   gap: 10px;
   align-items: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
 `;
 
 const UserEmail = styled.span`

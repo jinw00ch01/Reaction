@@ -198,6 +198,28 @@ app.get('/diary/recent', authenticateToken, async (req, res) => {
   }
 });
 
+// diary history 엔드포인트 추가
+app.get('/diary/history', authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+  
+  try {
+    const [diaries] = await db.execute(
+      'SELECT id, input_text, result_json, created_at FROM diaries WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    
+    const formattedDiaries = diaries.map(diary => ({
+      ...diary,
+      result_json: JSON.parse(diary.result_json)
+    }));
+    
+    res.json(formattedDiaries);
+  } catch (error) {
+    console.error('다이어리 히스토리 조회 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행중입니다`);
