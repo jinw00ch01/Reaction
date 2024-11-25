@@ -20,14 +20,20 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      const userData = await authAPI.verifyToken();
-      setUser(userData);
+      const response = await authAPI.verifyToken();
+      if (response.user) {
+        setUser(response.user);
+        localStorage.setItem('user', JSON.stringify(response.user));
+      }
     } catch (error) {
       if (error instanceof AuthError && error.code === 'TOKEN_EXPIRED') {
         try {
           await authAPI.refreshToken();
-          const userData = await authAPI.verifyToken();
-          setUser(userData);
+          const response = await authAPI.verifyToken();
+          if (response.user) {
+            setUser(response.user);
+            localStorage.setItem('user', JSON.stringify(response.user));
+          }
         } catch (refreshError) {
           handleAuthError(refreshError);
         }

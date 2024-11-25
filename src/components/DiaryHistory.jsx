@@ -4,14 +4,14 @@ import axios from '../api/axios';
 import { Card, Empty } from 'antd';
 import { formatDate } from '../utils/dateFormat';
 
-const DiaryHistory = ({ user }) => {
+const DiaryHistory = ({ user, diaryUpdated }) => {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
     if (user) {
       fetchDiaryHistory();
     }
-  }, [user]);
+  }, [user, diaryUpdated]);
 
   const fetchDiaryHistory = async () => {
     try {

@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { CallGPT } from "./api/gpt";
 import DiaryInput from "./components/DiaryInput";
 import styled from "styled-components";
-import logo from "./assets/logo.png";
 import DiaryDisplay from "./components/DiaryDisplay";
 import { message } from "antd";
 import AuthButtons from './components/AuthButtons';
 import axios from './api/axios';
 import { useAuth } from './contexts/AuthContext';
 import DiaryHistory from './components/DiaryHistory';
+import questioncat from "./assets/questioncat.gif";
+import popcat from "./assets/popcat.gif";
 
 function App() {
   const [data, setData] = useState(null);
@@ -16,6 +17,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const { user } = useAuth();
+  const [diaryUpdated, setDiaryUpdated] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -62,6 +64,8 @@ function App() {
           result: result
         });
         await fetchRecentDiary();
+
+        setDiaryUpdated(diaryUpdated + 1);
       }
     } catch (error) {
       console.error('API 호출 에러:', error);
@@ -83,10 +87,14 @@ function App() {
       {contextHolder}
       <AuthButtons />
       <AppTitle>
-        심리상담사 AI, Reaction <img width={"100px"} src={logo} alt="logo" />
+        <TitleText>심리상담사 AI, Reaction</TitleText>
+        <LogoImage 
+          src={user ? popcat : questioncat} 
+          alt="logo" 
+        />
       </AppTitle>
       <ContentContainer>
-        <DiaryHistory user={user} />
+        <DiaryHistory user={user} diaryUpdated={diaryUpdated} />
         <MainContent>
           <DiaryInput
             messageApi={messageApi}
@@ -117,11 +125,38 @@ const AppContainer = styled.div`
 
 const AppTitle = styled.div`
   width: 100%;
-  font-weight: 400;
-  font-size: 35px;
-  text-align: center;
-  font-family: "Noto Serif KR";
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
   margin-bottom: 30px;
+  padding: 10px;
+  background: linear-gradient(to right, #fafafa, #f0f0f0);
+  border-radius: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+`;
+
+const TitleText = styled.span`
+  font-family: 'Noto Serif KR', serif;
+  font-size: 38px;
+  font-weight: 500;
+  color: #333;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(45deg, #2c3e50, #3498db);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
+`;
+
+const LogoImage = styled.img`
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.1);
+  }
 `;
 
 const ContentContainer = styled.div`

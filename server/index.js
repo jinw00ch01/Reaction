@@ -7,8 +7,13 @@ const { authenticateToken } = require('./middleware/auth');
 const OpenAI = require('openai');
 require('dotenv').config();
 const axios = require('axios');
+const { promisify } = require('util');
+const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
+
+// 데이터베이스 초기화
+require('./database/init');
 
 // CORS 설정
 app.use(cors({
@@ -36,19 +41,24 @@ app.post('/auth/signup', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const [result] = await db.execute(
+    db.run(
       'INSERT INTO users (email, password) VALUES (?, ?)',
-      [email, hashedPassword]
+      [email, hashedPassword],
+      function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ message: '이미 존재하는 이메일입니다' });
+          }
+          console.error('회원가입 에러:', err);
+          return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+        }
+        res.status(201).json({ 
+          message: '회원가입이 완료되었습니다',
+          userId: this.lastID
+        });
+      }
     );
-
-    res.status(201).json({ 
-      message: '회원가입이 완료되었습니다',
-      userId: result.insertId 
-    });
   } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ message: '이미 존재하는 이메일입니다' });
-    }
     console.error('회원가입 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
   }
@@ -58,39 +68,44 @@ app.post('/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [users] = await db.execute(
+    db.get(
       'SELECT * FROM users WHERE email = ?',
-      [email]
+      [email],
+      async (err, user) => {
+        if (err) {
+          console.error('데이터베이스 조회 에러:', err);
+          return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+        }
+
+        if (!user) {
+          return res.status(404).json({ message: '존재하지 않는 계정입니다' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        
+        if (!validPassword) {
+          return res.status(401).json({ message: '이메일 또는 비밀번호가 올바르지 않습니다' });
+        }
+
+        const token = jwt.sign(
+          { userId: user.id }, 
+          process.env.JWT_SECRET, 
+          { expiresIn: '1h' }
+        );
+        
+        const refreshToken = jwt.sign(
+          { userId: user.id }, 
+          process.env.JWT_REFRESH_SECRET, 
+          { expiresIn: '7d' }
+        );
+
+        res.json({
+          token,
+          refreshToken,
+          user: { id: user.id, email: user.email }
+        });
+      }
     );
-
-    if (users.length === 0) {
-      return res.status(404).json({ message: '존재하지 않는 계정입니다' });
-    }
-
-    const user = users[0];
-    const validPassword = await bcrypt.compare(password, user.password);
-    
-    if (!validPassword) {
-      return res.status(401).json({ message: '이메일 또는 비밀번호가 올바르지 않습니다' });
-    }
-
-    const token = jwt.sign(
-      { userId: user.id }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
-    );
-    
-    const refreshToken = jwt.sign(
-      { userId: user.id }, 
-      process.env.JWT_REFRESH_SECRET, 
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      refreshToken,
-      user: { id: user.id, email: user.email }
-    });
   } catch (error) {
     console.error('로그인 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
@@ -119,36 +134,37 @@ app.post('/auth/refresh', async (req, res) => {
   }
 });
 
+// 프로미스 형태로 db.run을 사용하는 헬퍼 함수 생성
+function runAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
 app.delete('/auth/withdraw', authenticateToken, async (req, res) => {
   const userId = req.user.userId;
-  const connection = await db.getConnection();
   
   try {
     // 트랜잭션 시작
-    await connection.beginTransaction();
-    
-    // 사용자의 다이어리 데이터 먼저 삭제
-    await connection.execute(
-      'DELETE FROM diaries WHERE user_id = ?',
-      [userId]
-    );
-    
+    await runAsync('BEGIN TRANSACTION');
+
+    // 사용자의 다이어리 데이터 삭제
+    await runAsync('DELETE FROM diaries WHERE user_id = ?', [userId]);
+
     // 사용자 계정 삭제
-    await connection.execute(
-      'DELETE FROM users WHERE id = ?',
-      [userId]
-    );
-    
+    await runAsync('DELETE FROM users WHERE id = ?', [userId]);
+
     // 트랜잭션 커밋
-    await connection.commit();
+    await runAsync('COMMIT');
     res.json({ message: '회원탈퇴가 완료되었습니다' });
   } catch (error) {
     // 에러 발생 시 롤백
-    await connection.rollback();
+    await runAsync('ROLLBACK');
     console.error('회원탈퇴 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
-  } finally {
-    connection.release();
   }
 });
 
@@ -158,56 +174,63 @@ app.post('/diary', authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   
   try {
-    const [diary] = await db.execute(
-      'INSERT INTO diaries (user_id, input_text, result_json, created_at) VALUES (?, ?, ?, NOW())',
-      [userId, input, JSON.stringify(result)]
+    db.run(
+      'INSERT INTO diaries (user_id, input_text, result_json, created_at) VALUES (?, ?, ?, datetime("now", "localtime"))',
+      [userId, input, JSON.stringify(result)],
+      function(err) {
+        if (err) {
+          console.error('다이어리 저장 에러:', err);
+          return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+        }
+        
+        res.status(201).json({ 
+          message: '다이어리가 저장되었습니다',
+          diaryId: this.lastID 
+        });
+      }
     );
-    
-    res.status(201).json({ 
-      message: '다이어리가 저장되었습니다',
-      diaryId: diary.insertId 
-    });
   } catch (error) {
     console.error('다이어리 저장 에러:', error);
-    res.status(500).json({ message: '서버 오류가 발생습니다' });
-  }
-});
-
-app.get('/diary/recent', authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-  
-  try {
-    const [diaries] = await db.execute(
-      'SELECT * FROM diaries WHERE user_id = ? ORDER BY created_at DESC LIMIT 2',
-      [userId]
-    );
-    
-    res.json(diaries);
-  } catch (error) {
-    console.error('다이어리 조회 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
   }
 });
 
-app.get('/diary/history', authenticateToken, async (req, res) => {
+app.get('/diary/recent', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   
-  try {
-    const [diaries] = await db.execute(
-      'SELECT id, input_text, result_json, created_at FROM diaries WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
-    );
-    
-    const formattedDiaries = diaries.map(diary => ({
-      ...diary,
-      result_json: JSON.parse(diary.result_json)
-    }));
-    
-    res.json(formattedDiaries);
-  } catch (error) {
-    console.error('다이어리 히스토리 조회 에러:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다' });
-  }
+  db.all(
+    'SELECT * FROM diaries WHERE user_id = ? ORDER BY created_at DESC LIMIT 2',
+    [userId],
+    (err, diaries) => {
+      if (err) {
+        console.error('다이어리 조회 에러:', err);
+        return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+      }
+      res.json(diaries);
+    }
+  );
+});
+
+app.get('/diary/history', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  
+  db.all(
+    'SELECT id, input_text, result_json, created_at FROM diaries WHERE user_id = ? ORDER BY created_at DESC',
+    [userId],
+    (err, diaries) => {
+      if (err) {
+        console.error('다이어리 히스토리 조회 에러:', err);
+        return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+      }
+      
+      const formattedDiaries = diaries.map(diary => ({
+        ...diary,
+        result_json: JSON.parse(diary.result_json)
+      }));
+      
+      res.json(formattedDiaries);
+    }
+  );
 });
 
 app.post('/image/generate', authenticateToken, async (req, res) => {
@@ -242,22 +265,25 @@ app.post('/image/generate', authenticateToken, async (req, res) => {
   }
 });
 
-// 토큰 검증 엔드포인트 추가
+// 토큰 검증 엔드포인트 수정
 app.get('/auth/verify', authenticateToken, async (req, res) => {
   try {
-    const [users] = await db.execute(
+    db.get(
       'SELECT id, email FROM users WHERE id = ?',
-      [req.user.userId]
+      [req.user.userId],
+      (err, user) => {
+        if (err) {
+          console.error('사용자 조회 에러:', err);
+          return res.status(500).json({ message: '서버 오류가 발생했습니다' });
+        }
+
+        if (!user) {
+          return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
+        }
+
+        res.json({ user: { id: user.id, email: user.email } });
+      }
     );
-
-    if (users.length === 0) {
-      return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
-    }
-
-    res.json({ 
-      message: '토큰이 유효합니다',
-      user: { id: users[0].id, email: users[0].email }
-    });
   } catch (error) {
     console.error('사용자 조회 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
