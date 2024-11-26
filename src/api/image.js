@@ -6,13 +6,12 @@ export const generateImage = async (prompt) => {
       prompt: prompt
     }, {
       timeout: 30000,
-      responseType: 'blob'
+      responseType: 'arraybuffer'
     });
     
-    if (response.data instanceof Blob) {
-      return URL.createObjectURL(response.data);
-    } else if (response.data.imageUrl) {
-      return response.data.imageUrl;
+    if (response.data) {
+      const blob = new Blob([response.data], { type: 'image/png' });
+      return URL.createObjectURL(blob);
     }
     
     throw new Error('이미지 데이터를 받지 못했습니다');

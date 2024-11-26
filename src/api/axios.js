@@ -12,7 +12,7 @@ export const BASE_URL = getBaseUrl();
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,6 +41,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 이미지 요청에 대한 응답 타입 설정
+    if (config.url.includes('/image/generate')) {
+      config.responseType = 'arraybuffer';
+    }
+
     return config;
   },
   (error) => {

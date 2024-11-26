@@ -2,18 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('./config/database');
-const { authenticateToken } = require('./middleware/auth');
-const OpenAI = require('openai');
+const db = require('./config/database.js');
+const { authenticateToken } = require('./middleware/auth.js');
 require('dotenv').config();
 const axios = require('axios');
 const { promisify } = require('util');
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3');
+
+// OpenAI 설정
+const OpenAI = require('openai');
 
 const app = express();
 
 // 데이터베이스 초기화
-require('./database/init');
+require('./database/init.js');
 
 // CORS 설정
 app.use(cors({
@@ -24,7 +26,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// OpenAI 설정
+// OpenAI 인스턴스 생성 방식 변경
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -78,7 +80,7 @@ app.post('/auth/login', async (req, res) => {
         }
 
         if (!user) {
-          return res.status(404).json({ message: '존재하지 않는 계정입니다' });
+          return res.status(404).json({ message: '존재하지 않는 계정입다' });
         }
 
         const validPassword = await bcrypt.compare(password, user.password);
@@ -168,7 +170,7 @@ app.delete('/auth/withdraw', authenticateToken, async (req, res) => {
   }
 });
 
-// 다이어리 관련 라우트
+// 다이어리 관��� 라우트
 app.post('/diary', authenticateToken, async (req, res) => {
   const { input, result } = req.body;
   const userId = req.user.userId;
@@ -233,12 +235,12 @@ app.get('/diary/history', authenticateToken, (req, res) => {
   );
 });
 
+// 이미지 생성 엔드포인트 수정
 app.post('/image/generate', authenticateToken, async (req, res) => {
   const { prompt } = req.body;
   
   try {
     const response = await openai.images.generate({
-      model: "dall-e-2",
       prompt: prompt,
       n: 1,
       size: "1024x1024",
@@ -286,6 +288,55 @@ app.get('/auth/verify', authenticateToken, async (req, res) => {
     );
   } catch (error) {
     console.error('사용자 조회 에러:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다' });
+  }
+});
+
+app.post('/gpt/chat', authenticateToken, async (req, res) => {
+  const { prompt } = req.body;
+  try {
+    const messages = [
+      {
+        role: "system",
+        content: `당신은 공감적이고 전문적인 심리 상담사입니다. 내담자의 이야기를 경청하고 깊이 있는 심리 분석과 치유적 조언을 제공해주세요. 응답은 반드시 올바른 JSON 형식이어야 합니다.`,
+      },
+      {
+        role: "system",
+        content: `다음 JSON 형식으로만 응답하세요:
+{
+  "title": "감정 키워드를 포함한 제목",
+  "summary": "현재 감정 상태 요약",
+  "analysis": "전문적인 심리 분석",
+  "emotional_change": "감정 변화 분석",
+  "action_list": ["조언1", "조언2", "조언3"],
+  "recommended_activities": ["활동1", "활동2", "활동3"],
+  "recommended_foods": ["음식1", "음식2", "음식3"],
+  "thumbnail": "emotion,psychology,healing"
+}
+`
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    });
+
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error('GPT API 호출 중 오류가 발생했습니다');
+    }
+
+    const result = response.choices[0].message.content;
+
+    res.json({ result });
+  } catch (error) {
+    console.error('GPT API 에러:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다' });
   }
 });
